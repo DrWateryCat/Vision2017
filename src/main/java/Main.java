@@ -12,7 +12,10 @@ public class Main {
 	static final Scalar MAX_HSV = new Scalar(94.886, 107.0, 255.0);
   static final Scalar WHITE = new Scalar(255, 255, 255);
 
-	static final double MIN_CONTOUR_AREA = 100.0;
+	static final double MIN_CONTOUR_AREA = 50.0;
+
+  static int hookCount = 0;
+  static final double MAX_CONTOUR_AREA = 500.0;
   public static void main(String[] args) {
     // Loads our OpenCV library. This MUST be included
     System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
@@ -64,20 +67,29 @@ public class Main {
     // This gets the image from a USB camera 
     // Usually this will be on device 0, but there are other overloads
     // that can be used
-    UsbCamera camera = setUsbCamera(0, inputStream);
+    UsbCamera cam0 = setUsbCamera(1, inputStream);
+    UsbCamera cam1 = setUsbCamera(0, inputStream);
+
+    inputStream.setSource(cam0);
     // Set the resolution for our camera, since this is over USB
-    camera.setResolution(320,240);
-    camera.setFPS(15);
+    cam0.setResolution(320,240);
+    cam0.setFPS(15);
+
+    cam1.setResolution(320, 240);
+    cam1.setFPS(15);
 
     // This creates a CvSink for us to use. This grabs images from our selected camera, 
     // and will allow us to use those images in opencv
     CvSink imageSink = new CvSink("CV Image Grabber");
-    imageSink.setSource(camera);
+    imageSink.setSource(cam0);
 
     // This creates a CvSource to use. This will take in a Mat image that has had OpenCV operations
     // operations 
     CvSource imageSource = new CvSource("CV Image Source", VideoMode.PixelFormat.kMJPEG, 320, 240, 15);
     MjpegServer cvStream = new MjpegServer("CV Image Stream", 1186);
+
+    MjpegServer cam2Stream = new MjpegServer("Camera 2 stream", 1187);
+    cam2Stream.setSource(cam1);
     cvStream.setSource(imageSource);
 
     // All Mats and Lists should be stored outside the loop to avoid allocations
@@ -88,25 +100,33 @@ public class Main {
 
     // Infinitely process image
     while (true) {
+
+
       // Grab a frame. If it has a frame time of 0, there was an error
       // Just skip and continue
       long frameTime = imageSink.grabFrame(inputImage);
       if (frameTime == 0) continue;
 
+      if(NetworkTable.getTable("/SmartDashboard").getBoolean("run_vision", false)) {
 	  contours.clear();
 
       // Below is where you would do your OpenCV operations on the provided image
       // The sample below just changes color source to HSV
       Imgproc.cvtColor(inputImage, hsv, Imgproc.COLOR_BGR2HSV);
-	  inputImage = threshold(inputImage);
-	  contours = findContours(inputImage);
+	  threshold(hsv);
+	  contours = findContours(hsv);
 	  contours = filterContours(contours);
 	  contours = convexHull(contours);
 	  drawHook(contours, inputImage);
+    publishToNetworkTables(contours);
       // Here is where you would write a processed image that you want to restreams
       // This will most likely be a marked up image of what the camera sees
       // For now, we are just going to stream the HSV image
+      } else {
+        hookCount = 0;
+      }
       imageSource.putFrame(inputImage);
+
     }
   }
 
@@ -156,16 +176,14 @@ public class Main {
     return camera;
   }
 
-  private static Mat threshold(Mat input) {
-	  Mat ret = new Mat();
-	  Core.inRange(input, MIN_HSV, MAX_HSV, ret);
-	  return ret;
+  private static void threshold(Mat input) {
+	  Core.inRange(input, MIN_HSV, MAX_HSV, input);
   }
 
   private static ArrayList<MatOfPoint> findContours(Mat input) {
 	  ArrayList<MatOfPoint> ret = new ArrayList<>();
 	  Mat hierarchy = new Mat();
-    Imgproc.findContours(input.clone(), ret, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+    Imgproc.findContours(input, ret, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
 	  return ret;
   }
 
@@ -174,7 +192,7 @@ public class Main {
 
 	  for (MatOfPoint m : contours) {
 		  double area = Imgproc.contourArea(m);
-		  if (area >= MIN_CONTOUR_AREA) {
+		  if (area >= MIN_CONTOUR_AREA && area <= MAX_CONTOUR_AREA) {
 			  ret.add(m);
 		  }
 	  }
@@ -200,22 +218,27 @@ public class Main {
   }
 
   private static void drawHook(ArrayList<MatOfPoint> contours, Mat img) {
-    Mat temp = img.clone();
-    Imgproc.drawContours(temp, contours, -1, WHITE);
-    Core.add(img, temp, img);
+    Imgproc.drawContours(img, contours, -1, WHITE);
   }
 
   private static void publishToNetworkTables(ArrayList<MatOfPoint> contours) {
+    NetworkTable sd = NetworkTable.getTable("/SmartDashboard");
     if (contours.size() == 2) {
       //Found hook
       Rect leftContour = Imgproc.boundingRect(contours.get(0));
       Rect rightContour = Imgproc.boundingRect(contours.get(1));
 
-      double centerX = ((leftContour.width / 2) + (rightContour.width / 2)) / 2;
-      double turn = centerX - 160;
+      double leftCenter = leftContour.x + (leftContour.width / 2);
+      double rightCenter = rightContour.x + (rightContour.width / 2);
 
-      NetworkTable sd = NetworkTable.getTable("/SmartDashboard");
+      double turn = (leftCenter + rightCenter) / 2;
+      turn -= 160;
+      turn /= 160;
+
+      sd.putBoolean("Vision/Found Hook", true);
       sd.putNumber("Vision/Turn", turn);
+    } else {
+      sd.putBoolean("Vision/Found Hook", false);
     }
   }
 }

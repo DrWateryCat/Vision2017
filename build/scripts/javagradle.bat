@@ -63,7 +63,7 @@ set CMD_LINE_ARGS=%*
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\CameraVision.jar;%APP_HOME%\lib\NetworkTables-3.1.6-arm-raspbian.jar;%APP_HOME%\lib\cscore-1.0.1-arm-raspbian.jar;%APP_HOME%\lib\opencv-java-3.1.0.jar
+set CLASSPATH=%APP_HOME%\lib\CameraVision.jar;%APP_HOME%\lib\NetworkTables-3.1.7-arm-raspbian.jar;%APP_HOME%\lib\cscore-1.0.2-arm-raspbian.jar;%APP_HOME%\lib\opencv-java-3.1.0.jar
 
 @rem Execute javagradle
 "%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %JAVAGRADLE_OPTS%  -classpath "%CLASSPATH%" Main %CMD_LINE_ARGS%

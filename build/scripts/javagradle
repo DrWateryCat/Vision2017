@@ -64,7 +64,7 @@ case "`uname`" in
     ;;
 esac
 
-CLASSPATH=$APP_HOME/lib/CameraVision.jar:$APP_HOME/lib/NetworkTables-3.1.6-arm-raspbian.jar:$APP_HOME/lib/cscore-1.0.1-arm-raspbian.jar:$APP_HOME/lib/opencv-java-3.1.0.jar
+CLASSPATH=$APP_HOME/lib/CameraVision.jar:$APP_HOME/lib/NetworkTables-3.1.7-arm-raspbian.jar:$APP_HOME/lib/cscore-1.0.2-arm-raspbian.jar:$APP_HOME/lib/opencv-java-3.1.0.jar
 
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
